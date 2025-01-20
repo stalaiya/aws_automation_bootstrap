@@ -1,0 +1,29 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Installing Terraform..."
+      # Use the environment variable for Terraform version:
+      - wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+      - terraform version
+
+  pre_build:
+    commands:
+      - echo "Initializing Terraform..."
+      - terraform init \
+          -backend-config="bucket=$TF_VAR_state_bucket" \
+          -backend-config="dynamodb_table=$TF_VAR_lock_table"
+
+  build:
+    commands:
+      - echo "Planning Terraform changes..."
+      - terraform plan -out=tfplan
+      - echo "Applying Terraform changes..."
+      - terraform apply -auto-approve tfplan
+
+  post_build:
+    commands:
+      - echo "Finished build!"

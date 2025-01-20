@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Sets up S3 for Terraform state, a DynamoDB table for locks,
+  and a CodeBuild project to run Terraform commands.
+
+Parameters:
+  projectName:
+    Type: String
+    Description: Name of the project
+    Default: "awstfautomation"
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+    Default: "https://github.com/stalaiya/training"
+  TerraformVersion:
+    Type: String
+    Default: "1.4.6"
+    Description: "Terraform version to install."
+
+Resources:
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "terraform-state-${projectName}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  TerraformLockTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "terraform-locks"
+      AttributeDefinitions:
+        - AttributeName: LockID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: LockID
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${projectName}-CodeBuildServiceRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+        - arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess
+      Policies:
+        - PolicyName: CodeBuildCodeConnectionsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codestar-connections:GetConnectionToken
+                  - codestar-connections:GetConnection
+                  - codeconnections:GetConnectionToken
+                  - codeconnections:GetConnection
+                  - codeconnections:UseConnection
+                Resource: "*"
+
+  TerraformCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${projectName}-TerraformBuild"
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux-x86_64-standard:5.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: TERRAFORM_VERSION
+            Value: !Ref TerraformVersion
+          - Name: TF_VAR_state_bucket
+            Value: !Ref TerraformStateBucket
+          - Name: TF_VAR_lock_table
+            Value: !Ref TerraformLockTable
+      Source:
+        Type: GITHUB
+        Location: !Sub "${GitHubRepo}"
+        Auth:
+          Resource: "arn:aws:codeconnections:us-east-1:548572037680:connection/40bb54a9-b3f1-40ad-909f-438b9904f449"
+          Type: CODECONNECTIONS
+        BuildSpec: "codeBuild/buildspec.yml"
+      Triggers:
+        Webhook: true
+        FilterGroups:
+          - 
+            - Type: EVENT
+              Pattern: PUSH
+            - Type: FILE_PATH
+              Pattern: "some/path/test"
+      Description: "Build project to run Terraform commands"
+      TimeoutInMinutes: 300
+
+Outputs:
+  TerraformStateBucketName:
+    Description: "The S3 bucket for Terraform state"
+    Value: !Ref TerraformStateBucket
+
+  DynamoDBLockTableName:
+    Description: "The DynamoDB table for Terraform state locking"
+    Value: !Ref TerraformLockTable
