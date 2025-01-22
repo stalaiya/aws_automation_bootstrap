@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# I want a script that will bootstrap my AWS environment for terraform. I have the cloudformation script already prepared. The shell script should run the aws command to deploy or remove the cloudformation stack. If the argument is "deploy" you will deploy the stack. If it is "delete" it will remove and cleanup the stack.
-
 # Check if the correct number of arguments is provided
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <deploy|update|delete>"
