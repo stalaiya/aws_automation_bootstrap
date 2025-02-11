@@ -1,3 +1,4 @@
+dummy: 1
 deloy: false
 action: create
 stack_name: run-serverless-code-iac
