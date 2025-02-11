@@ -1,5 +1,5 @@
 dummy: 1
 deploy: true
-action: create
+action: deploy
 stack_name: run-serverless-code-iac
 region: us-east-1
