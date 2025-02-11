@@ -1,0 +1,4 @@
+deloy: false
+action: create
+stack_name: run-serverless-code-iac
+region: us-east-1

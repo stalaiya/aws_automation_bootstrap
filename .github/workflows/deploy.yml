@@ -1,0 +1,53 @@
+name: CloudFormation Deployment
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - bootstrap.yml
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up AWS credentials using your GitHub secrets
+      - name: Setup AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # Step 3: Install yq (a lightweight and portable command-line YAML processor)
+      - name: Install yq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yq
+
+      # Step 4: Parse the bootstrap.yml to read the desired values
+      - name: Parse deployment configuration
+        id: parse_config
+        run: |
+          echo "Reading deployment configuration from bootstrap.yml"
+          DEPLOY=$(yq eval '.deploy' bootstrap.yml)
+          ACTION=$(yq eval '.action' bootstrap.yml)
+          STACK_NAME=$(yq eval '.stack_name' bootstrap.yml)
+          echo "Read from bootstrap.yml: Deploy: '$DEPLOY', Action: '$ACTION', Stack Name: '$STACK_NAME'"
+          # Set the value for later steps using the new GitHub Actions syntax:
+          echo "deploy=$DEPLOY" >> $GITHUB_OUTPUT
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "stack_name=$STACK_NAME" >> $GITHUB_OUTPUT
+      
+      # Step 5: Check if deployment is enabled in bootstrap.yml
+      - name: Check if deployment is enabled and proceed accordingly
+        if: steps.parse_config.outputs.deploy == 'true'
+        run: |
+          echo "Deployment is enabled. Proceeding with the action specified in bootstrap.yml."
+          chmod +x ./bootstrap.sh
+          ./bootstrap.sh "${{ steps.parse_config.outputs.action }}" "${{ steps.parse_config.outputs.stack_name }}" cloudFormation/bootstrap.yaml
