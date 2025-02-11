@@ -27,8 +27,8 @@ jobs:
       # Step 3: Install yq (a lightweight and portable command-line YAML processor)
       - name: Install yq
         run: |
-          sudo apt-get update
-          sudo apt-get install -y yq
+          sudo wget https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
 
       # Step 4: Parse the bootstrap.yml to read the desired values
       - name: Parse deployment configuration
