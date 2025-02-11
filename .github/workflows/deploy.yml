@@ -44,8 +44,15 @@ jobs:
           echo "action=$ACTION" >> $GITHUB_OUTPUT
           echo "stack_name=$STACK_NAME" >> $GITHUB_OUTPUT
       
-      # Step 5: Check if deployment is enabled in bootstrap.yml
-      - name: Check if deployment is enabled and proceed accordingly
+      # Step 5: Check if deployment is disabled in bootstrap.yml
+      - name: Check if deployment is disabled
+        if: steps.parse_config.outputs.deploy == 'false'
+        run: |
+          echo "Deployment is not enabled. Skipping deployment steps."
+          exit 0
+
+      # Step 6: Check if deployment is enabled in bootstrap.yml
+      - name: Check if deployment is enabled
         if: steps.parse_config.outputs.deploy == 'true'
         run: |
           echo "Deployment is enabled. Proceeding with the action specified in bootstrap.yml."
